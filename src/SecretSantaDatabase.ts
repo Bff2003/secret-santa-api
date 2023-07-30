@@ -71,13 +71,17 @@ export default class SecretSantaDatabase {
         return result;
     }
 
-    public async createGame(name: string, password: string) {
+    public async createGame(name: string, password?: string): Promise<{ id: number, ownerKey: string }> {
         return new Promise((resolve, reject) => {
-            this.db.run('INSERT INTO games (name, owner_key, password) VALUES (?, ?, ?)', [name, this.generateOwnerKey(10, 20), password], function (err) {
+            let ownerKey = this.generateOwnerKey(10, 20);
+            if (!password) {
+                password = '';
+            }
+            this.db.run('INSERT INTO games (name, owner_key, password) VALUES (?, ?, ?)', [name, ownerKey, password], function (err) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(this.lastID);
+                    resolve({ id: this.lastID, ownerKey: ownerKey });
                 }
             });
         });
@@ -167,7 +171,7 @@ export default class SecretSantaDatabase {
         });
     }
 
-    public async getPlayersInGame(gameID: number) {
+    public async getPlayersInGame(gameID: number): Promise<any[]> {
         return new Promise((resolve, reject) => {
             this.db.all('SELECT * FROM players WHERE game_id = ?', [gameID], (err, rows) => {
                 if (err) {
@@ -177,5 +181,50 @@ export default class SecretSantaDatabase {
                 }
             });
         });
+    }
+
+    public async validateOwnerKey(gameID: number, ownerKey: string): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT * FROM games WHERE id = ? AND owner_key = ?', [gameID, ownerKey], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    if (row) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                }
+            });
+        });
+    }
+
+    public async validatePassword(gameID: number, password: string): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT * FROM games WHERE id = ? AND password = ?', [gameID, password], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    if (row) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                }
+            });
+        });
+    }
+
+    public async setTemplateData(){
+        // Create game 
+        let game = await this.createGame('Test Game');
+        
+        // Create players
+        let player1 = await this.createPlayer('Player 1', 'pl1@example.com', game.id);
+        let player2 = await this.createPlayer('Player 2', 'pl2@example.com', game.id);
+        let player3 = await this.createPlayer('Player 3', 'pl3@example.com', game.id);
+        let player4 = await this.createPlayer('Player 4', 'pl4@example.com', game.id);
+        let player5 = await this.createPlayer('Player 5', 'pl5@example.com', game.id);
+        let player6 = await this.createPlayer('Player 6', 'pl6@example.com', game.id);
     }
 }
